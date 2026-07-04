@@ -75,8 +75,24 @@ impl Lexer {
             }
             '/' => {
                 if self.match_char('/') {
+                    // Handle single-line comments
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
+                    }
+                } else if self.match_char('*') {
+                    // Handle block comments
+                    while !(self.peek() == '*' && self.peek_next() == '/') && !self.is_at_end() {
+                        if self.peek() == '\n' {
+                            self.line += 1;
+                        }
+                        self.advance();
+                    }
+                    if self.is_at_end() {
+                        eprintln!("[line {}] Unterminated block comment.", self.line);
+                    } else {
+                        // Consume the closing */
+                        self.advance(); // consume '*'
+                        self.advance(); // consume '/'
                     }
                 } else {
                     self.add_token(TokenType::Slash, None);
