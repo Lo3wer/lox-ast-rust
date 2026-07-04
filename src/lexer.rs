@@ -21,10 +21,13 @@ impl Lexer {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> &Vec<Token> {
+    pub fn scan_tokens<F>(&mut self, mut report_error: F) -> &Vec<Token>
+    where
+        F: FnMut(usize, &str),
+    {
         while !self.is_at_end() {
             self.start = self.current;
-            self.scan_token();
+            self.scan_token(&mut report_error);
         }
 
         self.tokens.push(Token::new(TokenType::Eof, "".to_string(), None, self.line));
@@ -33,7 +36,10 @@ impl Lexer {
 
     // Mutator private functions
 
-    fn scan_token(&mut self) {
+    fn scan_token<F>(&mut self, report_error: &mut F)
+    where
+        F: FnMut(usize, &str),
+    {
         let c = self.advance();
         match c {
             '(' => self.add_token(TokenType::LeftParen, None),
@@ -89,7 +95,7 @@ impl Lexer {
                         self.advance();
                     }
                     if self.is_at_end() {
-                        eprintln!("[line {}] Unterminated block comment.", self.line);
+                        report_error(self.line, "Unterminated block comment.");
                     } else {
                         // Consume the closing */
                         self.advance(); // consume '*'
@@ -103,16 +109,19 @@ impl Lexer {
             '\r' | 
             '\t' => { /* Ignore whitespace */ }
             '\n' => self.line += 1,
-            '"' => self.string(),
-            '0'..='9' => self.number(),
-            'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
+            '"' => self.string(report_error),
+            c if Self::is_digit(c) => self.number(),
+            c if Self::is_alpha(c) => self.identifier(),
             _ => {
-                eprintln!("[line {}] Unexpected character: {}", self.line, c);
+                report_error(self.line, "Unexpected character.");
             }
         }
     }
 
-    fn string(&mut self) {
+    fn string<F>(&mut self, report_error: &mut F)
+    where
+        F: FnMut(usize, &str),
+    {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -121,7 +130,7 @@ impl Lexer {
         }
 
         if self.is_at_end() {
-            eprintln!("[line {}] Unterminated string.", self.line);
+            report_error(self.line, "Unterminated string.");
             return;
         }
 

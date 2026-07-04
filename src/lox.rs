@@ -12,6 +12,15 @@ impl Lox {
         Lox { had_error: false }
     }
 
+    pub fn error(&mut self, line: usize, message: &str) {
+        self.report(line, "", message);
+    }
+
+    fn report(&mut self, line: usize, where_: &str, message: &str) {
+        eprintln!("[line {line}] Error{where_}: {message}");
+        self.had_error = true;
+    }
+
     pub fn run_file(&mut self, path: &str) -> io::Result<()> {
         let contents = fs::read_to_string(path)?;
         self.run(&contents);
@@ -40,7 +49,7 @@ impl Lox {
 
     fn run(&mut self, source: &str) {
         let mut lexer = Lexer::new(source.to_string());
-        let tokens = lexer.scan_tokens();
+        let tokens = lexer.scan_tokens(|line, message| self.error(line, message));
 
         for token in tokens {
             println!("{}", token);

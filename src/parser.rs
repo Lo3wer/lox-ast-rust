@@ -165,6 +165,10 @@ impl Parser {
         if self.check(&token_type) {
             return self.advance();
         }
-        
+        self.error(&self.peek(), message);
+    }
+
+    fn error(&self, token: &Token, message: &str) {
+        eprintln!("[line {}] Error at '{}': {}", token.line(), token.lexeme, message);
     }
 }
