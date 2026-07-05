@@ -35,6 +35,7 @@ impl Parser {
     //                | primary ;
     // primary        → NUMBER | STRING | "true" | "false" | "nil"
     //                | "(" expression ")"
+    // -- below functions are not implemented for primary, error handling is still general --
     //                | ( "!=" | "==" ) comparison
     //                | ( ">" | ">=" | "<" | "<=" ) term
     //                | ( "+" ) factor

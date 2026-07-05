@@ -1,7 +1,9 @@
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::evaluator::Evaluator;
 use crate::ast_printer::AstPrinter;
 use crate::token::{Token, TokenType};
+use crate::values::Literal;
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::process;
@@ -71,9 +73,17 @@ impl Lox {
             return;
         }
 
-        let printer = AstPrinter::new();
-        let ast = printer.print(&expression);
-        println!("{}", ast);
+        let evaluator = Evaluator::new();
+        let result = evaluator.interpret(&expression);
+        if let Some(literal) = result {
+            let literal_string = match literal {
+                crate::values::Literal::Number(n) => n.to_string(),
+                crate::values::Literal::String(s) => s,
+                crate::values::Literal::Bool(b) => b.to_string(),
+                crate::values::Literal::Nil => "nil".to_string(),
+            };
+            println!("{}", literal_string);
+        }
     }
 }
 
