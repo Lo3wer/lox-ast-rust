@@ -2,6 +2,7 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::evaluator::Evaluator;
 use crate::token::TokenType;
+use crate::errors::{LexError, ParseError, RuntimeError};
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::process;
@@ -21,11 +22,11 @@ impl Lox {
         self.had_error = true;
     }
 
-    fn report_lex_error(&mut self, error: &crate::errors::LexError) {
+    fn report_lex_error(&mut self, error: &LexError) {
         self.report(error.line, "", &error.message);
     }
 
-    fn report_parse_error(&mut self, error: &crate::errors::ParseError) {
+    fn report_parse_error(&mut self, error: &ParseError) {
         let where_ = if error.token.token_type() == TokenType::Eof {
             " at end".to_string()
         } else {
@@ -34,8 +35,8 @@ impl Lox {
         self.report(error.token.line(), &where_, &error.message);
     }
 
-    fn report_runtime_error(&mut self, error: &crate::errors::RuntimeError) {
-        eprintln!("{}\n[line {}]", error.message, error.token.line());
+    fn report_runtime_error(&mut self, error: &RuntimeError) {
+        self.report(error.token.line(), "", &error.message);
         self.had_runtime_error = true;
     }
 
