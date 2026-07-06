@@ -1,10 +1,11 @@
 use crate::token::{Token, TokenType};
 use crate::values::Literal;
-use crate::lox::ErrorReporter;
+use crate::errors::LexError;
 
 pub struct Lexer {
     source: Vec<char>,
     tokens: Vec<Token>,
+    errors: Vec<LexError>,
     start: usize,
     current: usize,
     line: usize,
@@ -15,30 +16,25 @@ impl Lexer {
         Lexer {
             source: source.chars().collect(),
             tokens: Vec::new(),
+            errors: Vec::new(),
             start: 0,
             current: 0,
             line: 1,
         }
     }
 
-    pub fn scan_tokens<R>(&mut self, reporter: &mut R) -> Vec<Token>
-    where
-        R: ErrorReporter,
-    {
+    pub fn scan_tokens(&mut self) -> (Vec<Token>, Vec<LexError>) {
         while !self.is_at_end() {
             self.start = self.current;
-            self.scan_token(reporter);
+            self.scan_token();
         }
 
         self.tokens.push(Token::new(TokenType::Eof, "".to_string(), None, self.line));
-        std::mem::take(&mut self.tokens)
+        (std::mem::take(&mut self.tokens), std::mem::take(&mut self.errors))
     }
 
     // Scanning routines
-    fn scan_token<R>(&mut self, reporter: &mut R)
-    where
-        R: ErrorReporter,
-    {
+    fn scan_token(&mut self) {
         let c = self.advance();
         match c {
             '(' => self.add_token(TokenType::LeftParen, None),
@@ -96,7 +92,7 @@ impl Lexer {
                         self.advance();
                     }
                     if self.is_at_end() {
-                        reporter.error(self.line, "Unterminated block comment.");
+                        self.error("Unterminated block comment.");
                     } else {
                         // Consume the closing */
                         self.advance(); // consume '*'
@@ -110,19 +106,16 @@ impl Lexer {
             '\r' | 
             '\t' => { /* Ignore whitespace */ }
             '\n' => self.line += 1,
-            '"' => self.string(reporter),
+            '"' => self.string(),
             c if Self::is_digit(c) => self.number(),
             c if Self::is_alpha(c) => self.identifier(),
             _ => {
-                reporter.error(self.line, "Unexpected character.");
+                self.error("Unexpected character.");
             }
         }
     }
 
-    fn string<R>(&mut self, reporter: &mut R)
-    where
-        R: ErrorReporter,
-    {
+    fn string(&mut self) {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -131,7 +124,7 @@ impl Lexer {
         }
 
         if self.is_at_end() {
-            reporter.error(self.line, "Unterminated string.");
+            self.error("Unterminated string.");
             return;
         }
 
@@ -141,6 +134,13 @@ impl Lexer {
         // Trim the surrounding quotes.
         let value: String = self.source[self.start + 1..self.current - 1].iter().collect();
         self.add_token(TokenType::String, Some(Literal::String(value)));
+    }
+
+    fn error(&mut self, message: &str) {
+        self.errors.push(LexError {
+            line: self.line,
+            message: message.to_string(),
+        });
     }
 
     fn number(&mut self) {

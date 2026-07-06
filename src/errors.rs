@@ -1,15 +1,19 @@
-use crate::token::{Token, TokenType};
+use crate::token::Token;
 
-#[derive(Debug, Clone, Copy)]
-pub struct ParseError;
-
-pub struct RuntimeError {
-    message: String,
-    token: Token,
+#[derive(Debug, Clone)]
+pub struct LexError {
+    pub line: usize,
+    pub message: String,
 }
 
-impl RuntimeError {
-    pub fn new(message: String, token: Token) -> Self {
-        RuntimeError { message, token }
-    }
+#[derive(Debug, Clone)]
+pub struct ParseError {
+    pub token: Token,
+    pub message: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct RuntimeError {
+    pub token: Token,
+    pub message: String,
 }

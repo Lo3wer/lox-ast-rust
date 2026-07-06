@@ -1,7 +1,7 @@
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::evaluator::Evaluator;
-use crate::token::{Token, TokenType};
+use crate::token::TokenType;
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::process;
@@ -16,26 +16,27 @@ impl Lox {
         Lox { had_error: false, had_runtime_error: false }
     }
 
-    pub fn error(&mut self, line: usize, message: &str) {
-        self.report(line, "", message);
-    }
-
-    pub fn error_token(&mut self, token: &Token, message: &str) {
-        if token.token_type() == TokenType::Eof {
-            self.report(token.line(), " at end", message);
-        } else {
-            self.report(token.line(), &format!(" at '{}'", token.lexeme()), message);
-        }
-    }
-
-    pub fn runtime_error(&mut self, message: &str, token: &Token) {
-        eprintln!("Runtime error at line {}: {}", token.line(), message);
-        self.had_runtime_error = true;
-    }
-
     fn report(&mut self, line: usize, where_: &str, message: &str) {
         eprintln!("[line {line}] Error{where_}: {message}");
         self.had_error = true;
+    }
+
+    fn report_lex_error(&mut self, error: &crate::errors::LexError) {
+        self.report(error.line, "", &error.message);
+    }
+
+    fn report_parse_error(&mut self, error: &crate::errors::ParseError) {
+        let where_ = if error.token.token_type() == TokenType::Eof {
+            " at end".to_string()
+        } else {
+            format!(" at '{}'", error.token.lexeme())
+        };
+        self.report(error.token.line(), &where_, &error.message);
+    }
+
+    fn report_runtime_error(&mut self, error: &crate::errors::RuntimeError) {
+        eprintln!("{}\n[line {}]", error.message, error.token.line());
+        self.had_runtime_error = true;
     }
 
     pub fn run_file(&mut self, path: &str) -> io::Result<()> {
@@ -62,49 +63,35 @@ impl Lox {
                 break;
             }
             self.run(line.trim_end());
-            self.had_error = false; // reset per line, like the book does
+            self.had_error = false;
+            self.had_runtime_error = false;
         }
         Ok(())
     }
 
     fn run(&mut self, source: &str) {
         let mut lexer = Lexer::new(source.to_string());
-        let tokens = lexer.scan_tokens(self);
-        let mut parser = Parser::new(tokens);
-        let expression = match parser.parse(self) {
-            Ok(expression) => expression,
-            Err(_) => return,
-        };
-
-        if self.had_error {
+        let (tokens, lex_errors) = lexer.scan_tokens();
+        for error in &lex_errors {
+            self.report_lex_error(error);
+        }
+        if !lex_errors.is_empty() {
             return;
         }
 
+        let mut parser = Parser::new(tokens);
+        let expression = match parser.parse() {
+            Ok(expression) => expression,
+            Err(error) => {
+                self.report_parse_error(&error);
+                return;
+            }
+        };
+
         let evaluator = Evaluator::new();
-        let result = evaluator.interpret(&expression);
-        if let Some(literal) = result {
-            let literal_string = match literal {
-                crate::values::Literal::Number(n) => n.to_string(),
-                crate::values::Literal::String(s) => s,
-                crate::values::Literal::Bool(b) => b.to_string(),
-                crate::values::Literal::Nil => "nil".to_string(),
-            };
-            println!("{}", literal_string);
+        match evaluator.interpret(&expression) {
+            Ok(value) => println!("{:?}", value),
+            Err(error) => self.report_runtime_error(&error),
         }
-    }
-}
-
-pub trait ErrorReporter {
-    fn error(&mut self, line: usize, message: &str);
-    fn error_token(&mut self, token: &Token, message: &str);
-}
-
-impl ErrorReporter for Lox {
-    fn error(&mut self, line: usize, message: &str) {
-        Lox::error(self, line, message);
-    }
-
-    fn error_token(&mut self, token: &Token, message: &str) {
-        Lox::error_token(self, token, message);
     }
 }

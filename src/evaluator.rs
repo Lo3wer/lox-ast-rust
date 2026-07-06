@@ -1,6 +1,7 @@
+use crate::errors::RuntimeError;
 use crate::expr::Expr;
-use crate::values::Literal;
 use crate::token::{Token, TokenType};
+use crate::values::Literal;
 
 pub struct Evaluator {}
 
@@ -9,11 +10,11 @@ impl Evaluator {
         Evaluator {}
     }
 
-    pub fn interpret(&self, expr: &Expr) -> Option<Literal> {
+    pub fn interpret(&self, expr: &Expr) -> Result<Literal, RuntimeError> {
         self.evaluate(expr)
     }
-    
-    fn evaluate(&self, expr: &Expr) -> Option<Literal> {
+
+    fn evaluate(&self, expr: &Expr) -> Result<Literal, RuntimeError> {
         match expr {
             Expr::Binary { left, operator, right } => {
                 let left_val = self.evaluate(left)?;
@@ -21,7 +22,7 @@ impl Evaluator {
                 self.evaluate_binary(&left_val, operator, &right_val)
             }
             Expr::Grouping { expression } => self.evaluate(expression),
-            Expr::Literal { value } => value.clone(),
+            Expr::Literal { value } => Ok(value.clone().unwrap_or(Literal::Nil)),
             Expr::Unary { operator, right } => {
                 let right_val = self.evaluate(right)?;
                 self.evaluate_unary(operator, &right_val)
@@ -33,95 +34,87 @@ impl Evaluator {
         }
     }
 
-    fn evaluate_unary(&self, operator: &Token, right: &Literal) -> Option<Literal> {
+    fn evaluate_unary(&self, operator: &Token, right: &Literal) -> Result<Literal, RuntimeError> {
         match operator.token_type() {
-            TokenType::Minus => {
-                if let Literal::Number(n) = right {
-                    Some(Literal::Number(-n))
-                } else {
-                    None
-                }
-            }
-            TokenType::Bang => {
-                Some(Literal::Bool(!self.is_truthy(right)))
-            }
-            _ => None,
+            TokenType::Minus => match right {
+                Literal::Number(n) => Ok(Literal::Number(-n)),
+                _ => Err(self.runtime_error(operator, "Operand must be a number.")),
+            },
+            TokenType::Bang => Ok(Literal::Bool(!self.is_truthy(right))),
+            _ => Err(self.runtime_error(operator, "Unknown unary operator.")),
         }
     }
 
-    fn evaluate_binary(&self, left: &Literal, operator: &Token, right: &Literal) -> Option<Literal> {
+    fn evaluate_binary(&self, left: &Literal, operator: &Token, right: &Literal) -> Result<Literal, RuntimeError> {
         match operator.token_type() {
-            // Arithmetic operations
-            TokenType::Plus => {
-                if let (Literal::Number(l), Literal::Number(r)) = (left, right) {
-                    Some(Literal::Number(l + r))
-                } else if let (Literal::String(l), Literal::String(r)) = (left, right) {
-                    Some(Literal::String(format!("{}{}", l, r)))
-                } else {
-                    None
+            TokenType::Plus => match (left, right) {
+                (Literal::Number(l), Literal::Number(r)) => {
+                    Ok(Literal::Number(l + r))
                 }
-            }
-            TokenType::Minus => {
-                if let (Literal::Number(l), Literal::Number(r)) = (left, right) {
-                    Some(Literal::Number(l - r))
-                } else {
-                    None
+                (Literal::String(l), Literal::String(r)) => {
+                    Ok(Literal::String(format!("{}{}", l, r)))
                 }
-            }
-            TokenType::Star => {
-                if let (Literal::Number(l), Literal::Number(r)) = (left, right) {
-                    Some(Literal::Number(l * r))
-                } else {
-                    None
-                }
-            }
-            TokenType::Slash => {
-                if let (Literal::Number(l), Literal::Number(r)) = (left, right) {
-                    Some(Literal::Number(l / r))
-                } else {
-                    None
-                }
-            }
-            // Comparison operations
-            TokenType::Greater => {
-                if let (Literal::Number(l), Literal::Number(r)) = (left, right) {
-                    Some(Literal::Bool(l > r))
-                } else {
-                    None
-                }
-            }
-            TokenType::Less => {
-                if let (Literal::Number(l), Literal::Number(r)) = (left, right) {
-                    Some(Literal::Bool(l < r))
-                } else {
-                    None
-                }
-            }
-            TokenType::GreaterEqual => {
-                if let (Literal::Number(l), Literal::Number(r)) = (left, right) {
-                    Some(Literal::Bool(l >= r))
-                } else {
-                    None
-                }
-            }
-            TokenType::LessEqual => {
-                if let (Literal::Number(l), Literal::Number(r)) = (left, right) {
-                    Some(Literal::Bool(l <= r))
-                } else {
-                    None
-                }
-            }
-            TokenType::EqualEqual => {
-                Some(Literal::Bool(self.is_equal(left, right)))
-            }
-            TokenType::BangEqual => {
-                Some(Literal::Bool(!self.is_equal(left, right)))
-            }
-            _ => None,
+                _ => Err(self.runtime_error(operator, "Operands must be two numbers or two strings.")),
+            },
+            TokenType::Minus => self.numeric_binary(left, operator, right, |l, r| {
+                Literal::Number(l - r)
+            }),
+            TokenType::Star => self.numeric_binary(left, operator, right, |l, r| {
+                Literal::Number(l * r)
+            }),
+            TokenType::Slash => self.numeric_binary(left, operator, right, |l, r| {
+                Literal::Number(l / r)
+            }),
+            TokenType::Greater => self.comparison_binary(left, operator, right, |l, r| {
+                Literal::Bool(l > r)
+            }),
+            TokenType::GreaterEqual => self.comparison_binary(left, operator, right, |l, r| {
+                Literal::Bool(l >= r)
+            }),
+            TokenType::Less => self.comparison_binary(left, operator, right, |l, r| {
+                Literal::Bool(l < r)
+            }),
+            TokenType::LessEqual => self.comparison_binary(left, operator, right, |l, r| {
+                Literal::Bool(l <= r)
+            }),
+            TokenType::EqualEqual => Ok(Literal::Bool(self.is_equal(left, right))),
+            TokenType::BangEqual => Ok(Literal::Bool(!self.is_equal(left, right))),
+            _ => Err(self.runtime_error(operator, "Unknown binary operator.")),
         }
     }
-    
-    fn evaluate_ternary(&self, condition: &Literal, then_branch: &Expr, else_branch: &Expr) -> Option<Literal> {
+
+    fn numeric_binary<F>(&self, left: &Literal, operator: &Token, right: &Literal, combine: F) -> Result<Literal, RuntimeError>
+    where
+        F: Fn(f64, f64) -> Literal,
+    {
+        match (left, right) {
+            (Literal::Number(l), Literal::Number(r)) => {
+                Ok(combine(*l, *r))
+            }
+            _ => Err(self.runtime_error(operator, "Operands must be numbers.")),
+        }
+    }
+
+    fn comparison_binary<F>(&self, left: &Literal, operator: &Token, right: &Literal, combine: F) -> Result<Literal, RuntimeError>
+    where
+        F: Fn(f64, f64) -> Literal,
+    {
+        match (left, right) {
+            (Literal::Number(l), Literal::Number(r)) => {
+                Ok(combine(*l, *r))
+            }
+            _ => Err(self.runtime_error(operator, "Operands must be numbers.")),
+        }
+    }
+
+    fn runtime_error(&self, token: &Token, message: &str) -> RuntimeError {
+        RuntimeError {
+            token: token.clone(),
+            message: message.to_string(),
+        }
+    }
+
+    fn evaluate_ternary(&self, condition: &Literal, then_branch: &Expr, else_branch: &Expr) -> Result<Literal, RuntimeError> {
         if let Literal::Bool(true) = condition {
             self.evaluate(then_branch)
         } else {
