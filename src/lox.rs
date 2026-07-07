@@ -89,7 +89,7 @@ impl Lox {
             }
         };
 
-        let evaluator = Evaluator::new();
+        let mut evaluator = Evaluator::new();
         match evaluator.interpret(statements) {
             Ok(()) => {},
             Err(error) => self.report_runtime_error(&error),

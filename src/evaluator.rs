@@ -3,27 +3,31 @@ use crate::expr::Expr;
 use crate::token::{Token, TokenType};
 use crate::values::Literal;
 use crate::stmt::Stmt;
+use crate::environment::Environment;
 
 use std::cmp::Ordering;
 
-pub struct Evaluator {}
+pub struct Evaluator {
+    environment: Environment
+}
 
 impl Evaluator {
     pub fn new() -> Self {
-        Evaluator {}
+        Evaluator { environment: Environment::new() }
     }
 
-    pub fn interpret(&self, statements: Vec<Stmt>) -> Result<(), RuntimeError> {
+    pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), RuntimeError> {
         for statement in statements {
             self.execute(statement)?;
         }
         Ok(())
     }
 
-    fn execute(&self, stmt: Stmt) -> Result<(), RuntimeError> {
+    fn execute(&mut self, stmt: Stmt) -> Result<(), RuntimeError> {
         match stmt {
             Stmt::Expression { expression } => self.expression_stmt(expression),
             Stmt::Print { expression } => self.print_stmt(expression),
+            Stmt::Var { name, initializer } => self.var_stmt(name, initializer),
         }
     }
 
@@ -38,6 +42,12 @@ impl Evaluator {
         Ok(())
     }
 
+    fn var_stmt(&mut self, name: Token, initializer: Box<Expr>) -> Result<(), RuntimeError> {
+        let value = self.evaluate(&initializer)?;
+        self.environment.define(name.lexeme().to_string(), value);
+        Ok(())
+    }
+
     fn evaluate(&self, expr: &Expr) -> Result<Literal, RuntimeError> {
         match expr {
             Expr::Binary { left, operator, right } => {
@@ -46,7 +56,7 @@ impl Evaluator {
                 self.evaluate_binary(&left_val, operator, &right_val)
             }
             Expr::Grouping { expression } => self.evaluate(expression),
-            Expr::Literal { value } => Ok(value.clone().unwrap_or(Literal::Nil)),
+            Expr::Literal { value } => Ok(value.clone()),
             Expr::Unary { operator, right } => {
                 let right_val = self.evaluate(right)?;
                 self.evaluate_unary(operator, &right_val)
@@ -55,6 +65,7 @@ impl Evaluator {
                 let condition_val = self.evaluate(condition)?;
                 self.evaluate_ternary(&condition_val, then_branch, else_branch)
             }
+            Expr::Variable { name } => self.environment.get(name),
         }
     }
 

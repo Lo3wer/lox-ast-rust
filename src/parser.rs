@@ -38,16 +38,16 @@ impl Parser {
     }
 
     fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
-        let name = self.consume(TokenType::Identifier, "Expect variable name.")?;
+        let name = self.consume(TokenType::Identifier, "Expect variable name.")?.clone();
 
-        let mut initializer = Expr::Literal { value: None };
+        let mut initializer = Expr::Literal { value: Literal::Nil };
         if self.match_token(&[TokenType::Equal]) {
             initializer = self.expression()?;
         }
 
         self.consume(TokenType::Semicolon, "Expect ';' after variable declaration.")?;
 
-        Ok(Stmt::Var { name, initializer })
+        Ok(Stmt::Var { name, initializer: Box::new(initializer) })
     }
 
     fn statement(&mut self) -> Result<Stmt, ParseError> {
@@ -197,19 +197,19 @@ impl Parser {
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
         if self.match_token(&[TokenType::False]) {
-            return Ok(Expr::Literal { value: Some(Literal::Bool(false)) });
+            return Ok(Expr::Literal { value: Literal::Bool(false) });
         }
         if self.match_token(&[TokenType::True]) {
-            return Ok(Expr::Literal { value: Some(Literal::Bool(true)) });
+            return Ok(Expr::Literal { value: Literal::Bool(true) });
         }
         if self.match_token(&[TokenType::Nil]) {
-            return Ok(Expr::Literal { value: Some(Literal::Nil) });
+            return Ok(Expr::Literal { value: Literal::Nil });
         }
         if self.match_token(&[TokenType::Number, TokenType::String]) {
             let literal = self.previous().literal()
                 .cloned()
                 .ok_or_else(|| self.error(self.previous(), "Expected a literal value."))?;
-            return Ok(Expr::Literal { value: Some(literal) });
+            return Ok(Expr::Literal { value: literal });
         }
         if self.match_token(&[TokenType::Identifier]) {
             return Ok(Expr::Variable { name: self.previous().clone() });

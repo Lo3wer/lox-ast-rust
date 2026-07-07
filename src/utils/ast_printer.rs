@@ -19,11 +19,10 @@ impl AstPrinter {
             }
             Expr::Literal { value } => {
                 match value {
-                    Some(Literal::Number(n)) => n.to_string(),
-                    Some(Literal::String(s)) => s.clone(),
-                    Some(Literal::Bool(b)) => b.to_string(),
-                    Some(Literal::Nil) => "nil".to_string(),
-                    None => "nil".to_string(),
+                    Literal::Number(n) => n.to_string(),
+                    Literal::String(s) => s.clone(),
+                    Literal::Bool(b) => b.to_string(),
+                    Literal::Nil => "nil".to_string(),
                 }
             }
             Expr::Unary { operator, right } => {

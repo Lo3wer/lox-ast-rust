@@ -7,6 +7,7 @@ mod parser;
 mod evaluator;
 mod errors;
 mod stmt;
+mod environment;
 
 use lox::Lox;
 use std::process;
