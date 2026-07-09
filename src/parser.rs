@@ -80,8 +80,67 @@ impl Parser {
             return self.if_statement();
         } else if self.match_token(&[TokenType::While]) {
             return self.while_statement();
+        } else if self.match_token(&[TokenType::For]) {
+            return self.for_statement();
         }
         self.expression_statement()
+    }
+
+    fn for_statement(&mut self) -> Result<Stmt, ParseError> {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'for'.")?;
+
+        let initializer = if self.match_token(&[TokenType::Semicolon]) {
+            None
+        } else if self.match_token(&[TokenType::Var]) {
+            Some(self.var_declaration()?)
+        } else {
+            Some(self.expression_statement()?)
+        };
+
+        let condition = if !self.check(&TokenType::Semicolon) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(TokenType::Semicolon, "Expect ';' after loop condition.")?;
+
+        let increment = if !self.check(&TokenType::RightParen) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(TokenType::RightParen, "Expect ')' after for clauses.")?;
+
+        let mut body = Box::new(self.statement()?);
+
+        //desugar into while loop
+
+        if let Some(inc) = increment {
+            body = Box::new(Stmt::Block {
+                statements: vec![
+                    *body,
+                    Stmt::Expression { expression: Box::new(inc) },
+                ],
+            });
+        }
+
+        let condition = condition.unwrap_or(Expr::Literal { value: Literal::Bool(true) });
+
+        body = Box::new(Stmt::While {
+            condition: Box::new(condition),
+            body,
+        });
+
+        if let Some(init) = initializer {
+            body = Box::new(Stmt::Block {
+                statements: vec![
+                    init,
+                    *body,
+                ],
+            });
+        }
+
+        Ok(*body)
     }
 
     fn if_statement(&mut self) -> Result<Stmt, ParseError> {
