@@ -18,57 +18,83 @@ impl Evaluator {
 
     pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), RuntimeError> {
         for statement in statements {
-            self.execute(statement)?;
+            self.execute(&statement)?;
         }
         Ok(())
     }
 
-    fn execute(&mut self, stmt: Stmt) -> Result<(), RuntimeError> {
+    fn execute(&mut self, stmt: &Stmt) -> Result<(), RuntimeError> {
         match stmt {
             Stmt::Expression { expression } => self.expression_stmt(expression),
-            Stmt::If { condition, then_branch, else_branch } => self.if_stmt(condition, then_branch, else_branch),
+            Stmt::If { condition, then_branch, else_branch } => {
+                self.if_stmt(condition, then_branch, else_branch)
+            }
             Stmt::Print { expression } => self.print_stmt(expression),
             Stmt::Var { name, initializer } => self.var_stmt(name, initializer),
-            Stmt::Block { statements } => self.execute_block(statements, Environment::new_enclosed(self.environment.clone())),
+            Stmt::Block { statements } => {
+                self.execute_block(statements, Environment::new_enclosed(self.environment.clone()))
+            }
+            Stmt::While { condition, body } => self.while_stmt(condition, body),
         }
     }
 
-    fn execute_block(&mut self, statements: Vec<Stmt>, environment: EnvRef) -> Result<(), RuntimeError> {
+    fn execute_block(&mut self, statements: &[Stmt], environment: EnvRef) -> Result<(), RuntimeError> {
         let previous = self.environment.clone();
         self.environment = environment;
 
-        for statement in statements {
-            self.execute(statement)?;
-        }
+        // If any statement errors, we still want to restore the environment
+        // before propagating the error, so don't use `?` directly here.
+        let result = (|| {
+            for statement in statements {
+                self.execute(statement)?;
+            }
+            Ok(())
+        })();
 
         self.environment = previous;
+        result
+    }
+
+    fn expression_stmt(&mut self, expression: &Expr) -> Result<(), RuntimeError> {
+        self.evaluate(expression)?;
         Ok(())
     }
 
-    fn expression_stmt(&mut self, expression: Box<Expr>) -> Result<(), RuntimeError> {
-        self.evaluate(&expression)?;
-        Ok(())
-    }
-
-    fn if_stmt(&mut self, condition: Box<Expr>, then_branch: Box<Stmt>, else_branch: Option<Box<Stmt>>) -> Result<(), RuntimeError> {
-        let condition_value = self.evaluate(&condition)?;
+    fn if_stmt(
+        &mut self,
+        condition: &Expr,
+        then_branch: &Stmt,
+        else_branch: &Option<Box<Stmt>>,
+    ) -> Result<(), RuntimeError> {
+        let condition_value = self.evaluate(condition)?;
         if self.is_truthy(&condition_value) {
-            self.execute(*then_branch)?;
+            self.execute(then_branch)?;
         } else if let Some(else_stmt) = else_branch {
-            self.execute(*else_stmt)?;
+            self.execute(else_stmt)?;
         }
         Ok(())
     }
 
-    fn print_stmt(&mut self, expression: Box<Expr>) -> Result<(), RuntimeError> {
-        let value = self.evaluate(&expression)?;
+    fn while_stmt(&mut self, condition: &Expr, body: &Stmt) -> Result<(), RuntimeError> {
+        loop {
+            let value = self.evaluate(condition)?;
+            if !self.is_truthy(&value) {
+                break;
+            }
+            self.execute(body)?;
+        }
+        Ok(())
+    }
+
+    fn print_stmt(&mut self, expression: &Expr) -> Result<(), RuntimeError> {
+        let value = self.evaluate(expression)?;
         println!("{}", value);
         Ok(())
     }
 
-    fn var_stmt(&mut self, name: Token, initializer: Box<Expr>) -> Result<(), RuntimeError> {
-        let value = self.evaluate(&initializer)?;
-        self.environment.borrow_mut().define(&name, value);
+    fn var_stmt(&mut self, name: &Token, initializer: &Expr) -> Result<(), RuntimeError> {
+        let value = self.evaluate(initializer)?;
+        self.environment.borrow_mut().define(name, value);
         Ok(())
     }
 

@@ -78,6 +78,8 @@ impl Parser {
             return Ok(Stmt::Block { statements });
         } else if self.match_token(&[TokenType::If]) {
             return self.if_statement();
+        } else if self.match_token(&[TokenType::While]) {
+            return self.while_statement();
         }
         self.expression_statement()
     }
@@ -94,6 +96,15 @@ impl Parser {
             None
         };
         Ok(Stmt::If { condition: Box::new(condition), then_branch, else_branch })
+    }
+
+    fn while_statement(&mut self) -> Result<Stmt, ParseError> {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
+        let condition = self.expression()?;
+        self.consume(TokenType::RightParen, "Expect ')' after while condition.")?;
+
+        let body = Box::new(self.statement()?);
+        Ok(Stmt::While { condition: Box::new(condition), body })
     }
 
     fn expression_statement(&mut self) -> Result<Stmt, ParseError> {
