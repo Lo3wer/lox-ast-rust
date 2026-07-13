@@ -2,6 +2,9 @@ use std::fmt;
 use std::rc::Rc;
 use crate::evaluator::Evaluator;
 use crate::errors::RuntimeError;
+use crate::stmt::Stmt;
+use crate::token::Token;
+use crate::environment::Environment;
 
 #[derive(Clone)]
 pub enum Literal {
@@ -39,8 +42,35 @@ impl fmt::Debug for Literal {
 
 pub trait Callable {
     fn arity(&self) -> usize;
-    fn call(&self, evaluator: &Evaluator, arguments: &[Literal]) -> Result<Literal, RuntimeError>;
+    fn call(&self, evaluator: &mut Evaluator, arguments: &[Literal]) -> Result<Literal, RuntimeError>;
 }
+
+pub struct FunctionCallable{
+    params: Vec<Token>,
+    body: Vec<Stmt>,
+}
+
+impl FunctionCallable {
+    pub fn new(params: Vec<Token>, body: Vec<Stmt>) -> Self {
+        FunctionCallable { params, body }
+    }
+}
+
+impl Callable for FunctionCallable {
+    fn arity(&self) -> usize {
+        self.params.len()
+    }
+
+    fn call(&self, evaluator: &mut Evaluator, arguments: &[Literal]) -> Result<Literal, RuntimeError> {
+        let function_env = Environment::new_enclosed(evaluator.globals());
+        for (param, arg) in self.params.iter().zip(arguments.iter()) {
+            function_env.borrow_mut().define(param, arg.clone());
+        }
+        evaluator.execute_block(&self.body, function_env)?;
+        Ok(Literal::Nil)
+    }
+}
+
 
 impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

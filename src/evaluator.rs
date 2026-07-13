@@ -1,7 +1,7 @@
 use crate::errors::RuntimeError;
 use crate::expr::Expr;
 use crate::token::{Token, TokenType};
-use crate::values::{Literal, Callable};
+use crate::values::{Literal, Callable, FunctionCallable};
 use crate::stmt::Stmt;
 use crate::environment::{Environment, EnvRef};
 
@@ -30,7 +30,7 @@ impl Evaluator {
                 0
             }
 
-            fn call(&self, _evaluator: &Evaluator, _arguments: &[Literal]) -> Result<Literal, RuntimeError> {
+            fn call(&self, _evaluator: &mut Evaluator, _arguments: &[Literal]) -> Result<Literal, RuntimeError> {
                 let current_time = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .expect("Time went backwards");
@@ -56,6 +56,7 @@ impl Evaluator {
             }
             Stmt::Print { expression } => self.print_stmt(expression),
             Stmt::Var { name, initializer } => self.var_stmt(name, initializer),
+            Stmt::Function { name, params, body } => self.function_stmt(name, params, body),
             Stmt::Block { statements } => {
                 self.execute_block(statements, Environment::new_enclosed(self.environment.clone()))
             }
@@ -63,7 +64,7 @@ impl Evaluator {
         }
     }
 
-    fn execute_block(&mut self, statements: &[Stmt], environment: EnvRef) -> Result<(), RuntimeError> {
+    pub fn execute_block(&mut self, statements: &[Stmt], environment: EnvRef) -> Result<(), RuntimeError> {
         let previous = self.environment.clone();
         self.environment = environment;
 
@@ -78,6 +79,10 @@ impl Evaluator {
 
         self.environment = previous;
         result
+    }
+
+    pub fn globals(&self) -> EnvRef {
+        self.globals.clone()
     }
 
     fn expression_stmt(&mut self, expression: &Expr) -> Result<(), RuntimeError> {
@@ -123,6 +128,12 @@ impl Evaluator {
         Ok(())
     }
 
+    fn function_stmt(&mut self, name: &Token, params: &[Token], body: &[Stmt]) -> Result<(), RuntimeError> {
+        let function = Literal::Callable(Rc::new(FunctionCallable::new(params.to_vec(), body.to_vec())));
+        self.environment.borrow_mut().define(name, function);
+        Ok(())
+    }
+
     fn evaluate(&mut self, expr: &Expr) -> Result<Literal, RuntimeError> {
         match expr {
             Expr::Binary { left, operator, right } => {
@@ -158,7 +169,7 @@ impl Evaluator {
         }
     }
 
-    fn evaluate_call(&self, callee: &Literal, paren: &Token, arguments: &[Literal]) -> Result<Literal, RuntimeError> {
+    fn evaluate_call(&mut self, callee: &Literal, paren: &Token, arguments: &[Literal]) -> Result<Literal, RuntimeError> {
         match callee {
             Literal::Callable(callable) => {
                 if arguments.len() != callable.arity() {
