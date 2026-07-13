@@ -1,19 +1,44 @@
 use crate::errors::RuntimeError;
 use crate::expr::Expr;
 use crate::token::{Token, TokenType};
-use crate::values::Literal;
+use crate::values::{Literal, Callable};
 use crate::stmt::Stmt;
 use crate::environment::{Environment, EnvRef};
 
 use std::cmp::Ordering;
+use std::rc::Rc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct Evaluator {
+    globals: EnvRef,
     environment: EnvRef
 }
 
 impl Evaluator {
     pub fn new() -> Self {
-        Evaluator { environment: Environment::new() }
+        let globals = Environment::new();
+        let environment = globals.clone();
+        globals.borrow_mut().define_str("clock", Self::define_clock());
+        Evaluator { globals, environment }
+    }
+
+    fn define_clock() -> Literal {
+        struct ClockCallable;
+
+        impl Callable for ClockCallable {
+            fn arity(&self) -> usize {
+                0
+            }
+
+            fn call(&self, _evaluator: &Evaluator, _arguments: &[Literal]) -> Result<Literal, RuntimeError> {
+                let current_time = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Time went backwards");
+                Ok(Literal::Number(current_time.as_secs_f64()))
+            }
+        }
+
+        Literal::Callable(Rc::new(ClockCallable))
     }
 
     pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), RuntimeError> {
