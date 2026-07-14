@@ -1,8 +1,8 @@
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::evaluator::Evaluator;
-use crate::token::TokenType;
-use crate::exceptions::{LexError, ParseError, RuntimeException};
+use crate::datastructs::token::TokenType;
+use crate::datastructs::exceptions::{LexError, ParseError, RuntimeException};
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::process;

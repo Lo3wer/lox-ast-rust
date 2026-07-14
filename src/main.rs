@@ -1,12 +1,8 @@
-mod token;
 mod lexer;
 mod lox;
-mod values;
-mod expr;
+mod datastructs;
 mod parser;
 mod evaluator;
-mod exceptions;
-mod stmt;
 mod environment;
 
 use lox::Lox;

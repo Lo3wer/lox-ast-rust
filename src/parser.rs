@@ -1,8 +1,8 @@
-use crate::token::{Token, TokenType};
-use crate::values::Literal;
-use crate::expr::Expr;
-use crate::stmt::Stmt;
-use crate::exceptions::ParseError;
+use crate::datastructs::token::{Token, TokenType};
+use crate::datastructs::values::Literal;
+use crate::datastructs::expr::Expr;
+use crate::datastructs::stmt::Stmt;
+use crate::datastructs::exceptions::ParseError;
 
 pub struct Parser {
     tokens: Vec<Token>,

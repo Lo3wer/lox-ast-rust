@@ -1,8 +1,8 @@
-use crate::exceptions::RuntimeException;
-use crate::expr::Expr;
-use crate::token::{Token, TokenType};
-use crate::values::{Literal, Callable, FunctionCallable};
-use crate::stmt::Stmt;
+use crate::datastructs::exceptions::RuntimeException;
+use crate::datastructs::expr::Expr;
+use crate::datastructs::token::{Token, TokenType};
+use crate::datastructs::values::{Literal, Callable, FunctionCallable};
+use crate::datastructs::stmt::Stmt;
 use crate::environment::{Environment, EnvRef};
 
 use std::cmp::Ordering;

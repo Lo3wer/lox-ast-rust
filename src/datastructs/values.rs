@@ -1,9 +1,9 @@
 use std::{fmt};
 use std::rc::Rc;
 use crate::evaluator::Evaluator;
-use crate::exceptions::RuntimeException;
-use crate::stmt::Stmt;
-use crate::token::Token;
+use super::exceptions::RuntimeException;
+use super::stmt::Stmt;
+use super::token::Token;
 use crate::environment::{Environment, EnvRef};
 
 #[derive(Clone)]

@@ -1,5 +1,5 @@
-use crate::expr::Expr;
-use crate::token::Token;
+use super::expr::Expr;
+use super::token::Token;
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
