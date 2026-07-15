@@ -183,14 +183,16 @@ impl Evaluator {
             }
             Expr::Get { object, name } => {
                 let object_val = self.evaluate(object)?;
-                match object_val {
-                    Literal::Instance(instance) => instance.get(name),
-                    _ => Err(self.runtime_error(name, "Only instances have properties.")),
-                }
+                self.evaluate_get(&object_val, name)
             }
             Expr::Grouping { expression } => self.evaluate(expression),
             Expr::Literal { value } => Ok(value.clone()),
             Expr::Logical { left, operator, right} => self.evaluate_logical(left, operator, right),
+            Expr::Set { object, name, value } => {
+                let object_val = self.evaluate(object)?;
+                let value_val = self.evaluate(value)?;
+                self.evaluate_set(&object_val, name, &value_val)
+            },
             Expr::Unary { operator, right } => {
                 let right_val = self.evaluate(right)?;
                 self.evaluate_unary(operator, &right_val)
@@ -230,6 +232,23 @@ impl Evaluator {
                 callable.call(self, arguments)
             }
             _ => Err(self.runtime_error(paren, "Can only call functions and classes.")),
+        }
+    }
+
+    fn evaluate_get(&mut self, object: &Literal, name: &Token) -> Result<Literal, RuntimeException> {
+        match object {
+            Literal::Instance(instance) => instance.borrow().get(name),
+            _ => Err(self.runtime_error(name, "Only instances have properties.")),
+        }
+    }
+
+    fn evaluate_set(&mut self, object: &Literal, name: &Token, value: &Literal) -> Result<Literal, RuntimeException> {
+        match object {
+            Literal::Instance(instance) => {
+                instance.borrow_mut().set(name, value.clone());
+                Ok(value.clone())
+            }
+            _ => Err(self.runtime_error(name, "Only instances have fields.")),
         }
     }
 

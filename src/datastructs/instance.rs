@@ -25,6 +25,10 @@ impl Instance {
             message: format!("Undefined property '{}'.", name.lexeme()),
         })
     }
+
+    pub fn set(&mut self, name: &Token, value: Literal) {
+        self.fields.insert(name.lexeme().to_string(), value);
+    }
 }
 
 impl fmt::Display for Instance {

@@ -129,6 +129,10 @@ impl<'a> Resolver<'a> {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)?;
             }
+            Expr::Set { object, name: _, value } => {
+                self.resolve_expr(object)?;
+                self.resolve_expr(value)?;
+            }
             Expr::Unary { operator: _, right } => {
                 self.resolve_expr(right)?;
             }

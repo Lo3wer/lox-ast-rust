@@ -1,4 +1,5 @@
 use std::{fmt};
+use std::cell::RefCell;
 use std::rc::Rc;
 use crate::evaluator::Evaluator;
 use super::exceptions::RuntimeException;
@@ -12,7 +13,7 @@ pub enum Literal {
     String(String),
     Number(f64),
     Callable(Rc<dyn Callable>),
-    Instance(Rc<super::instance::Instance>),
+    Instance(Rc<RefCell<super::instance::Instance>>),
     Nil,
 }
 
@@ -37,7 +38,7 @@ impl fmt::Debug for Literal {
             Literal::String(v) => write!(f, "{:?}", v),
             Literal::Number(v) => write!(f, "{:?}", v),
             Literal::Callable(c) => write!(f, "{}", c),
-            Literal::Instance(i) => write!(f, "{}", i),
+            Literal::Instance(i) => write!(f, "{}", i.borrow()),
             Literal::Nil => write!(f, "Nil"),
         }
     }
@@ -57,7 +58,7 @@ impl fmt::Display for Literal {
             }
             Literal::Nil => write!(f, "nil"),
             Literal::Callable(c) => write!(f, "{}", c),
-            Literal::Instance(i) => write!(f, "{}", i),
+            Literal::Instance(i) => write!(f, "{}", i.borrow()),
         }
     }
 }
