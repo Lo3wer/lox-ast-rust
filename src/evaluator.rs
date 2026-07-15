@@ -98,10 +98,15 @@ impl Evaluator {
     }
 
     fn class_stmt(&mut self, name: &Token, methods: &[Stmt]) -> Result<(), RuntimeException> {
-        // For now, we just define the class name in the current environment.
-        // Class methods and other features can be implemented later.
         self.environment.borrow_mut().define(name, Literal::Nil);
-        let class = Literal::Callable(Rc::new(Class::new(name.lexeme().to_string())));
+        let mut method_map = HashMap::new();
+        for method in methods {
+            if let Stmt::Function { name: method_name, params, body } = method {
+                let function = Rc::new(FunctionCallable::new(params.to_vec(), body.to_vec(), self.environment.clone()));
+                method_map.insert(method_name.lexeme().to_string(), function as Rc<dyn Callable>);
+            }
+        }
+        let class = Literal::Callable(Rc::new(Class::new(name.lexeme().to_string(), method_map)));
         self.environment.borrow_mut().assign(name, class)?;
         Ok(())
     }

@@ -104,5 +104,6 @@ impl Callable for FunctionCallable {
 }
 
 pub enum FunctionType {
-    Function
+    Function,
+    Method,
 }

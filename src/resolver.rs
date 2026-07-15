@@ -72,6 +72,11 @@ impl<'a> Resolver<'a> {
             Stmt::Class { name, methods} => {
                 self.declare(name)?;
                 self.define(name);
+                for method in methods {
+                    if let Stmt::Function { name: method_name, params, body } = method {
+                        self.resolve_function(params, body, FunctionType::Method)?;
+                    }
+                }
             }
         }
         Ok(())
