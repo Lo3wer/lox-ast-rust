@@ -12,6 +12,7 @@ pub enum Literal {
     String(String),
     Number(f64),
     Callable(Rc<dyn Callable>),
+    Instance(Rc<super::instance::Instance>),
     Nil,
 }
 
@@ -23,6 +24,7 @@ impl PartialEq for Literal {
             (Literal::Number(a), Literal::Number(b)) => a == b,
             (Literal::Nil, Literal::Nil) => true,
             (Literal::Callable(_), Literal::Callable(_)) => false,
+            (Literal::Instance(a), Literal::Instance(b)) => Rc::ptr_eq(a, b),
             _ => false,
         }
     }
@@ -34,7 +36,8 @@ impl fmt::Debug for Literal {
             Literal::Bool(v) => write!(f, "{:?}", v),
             Literal::String(v) => write!(f, "{:?}", v),
             Literal::Number(v) => write!(f, "{:?}", v),
-            Literal::Callable(_) => write!(f, "<function>"),
+            Literal::Callable(c) => write!(f, "{}", c),
+            Literal::Instance(i) => write!(f, "{}", i),
             Literal::Nil => write!(f, "Nil"),
         }
     }
@@ -53,11 +56,12 @@ impl fmt::Display for Literal {
                 }
             }
             Literal::Nil => write!(f, "nil"),
-            Literal::Callable(_) => write!(f, "<function>"),
+            Literal::Callable(c) => write!(f, "{}", c),
+            Literal::Instance(i) => write!(f, "{}", i),
         }
     }
 }
-pub trait Callable {
+pub trait Callable: fmt::Display {
     fn arity(&self) -> usize;
     fn call(&self, evaluator: &mut Evaluator, arguments: &[Literal]) -> Result<Literal, RuntimeException>;
 }
@@ -71,6 +75,12 @@ pub struct FunctionCallable{
 impl FunctionCallable {
     pub fn new(params: Vec<Token>, body: Vec<Stmt>, closure: EnvRef) -> Self {
         FunctionCallable { params, body, closure }
+    }
+}
+
+impl fmt::Display for FunctionCallable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<fn>")
     }
 }
 

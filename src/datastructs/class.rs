@@ -1,3 +1,4 @@
+use std::fmt;
 use crate::datastructs::values::{Callable, Literal};
 use crate::datastructs::exceptions::RuntimeException;
 use crate::evaluator::Evaluator;
@@ -16,14 +17,18 @@ impl Class {
     }
 }
 
+impl fmt::Display for Class {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<class {}>", self.name)
+    }
+}
+
 impl Callable for Class {
     fn arity(&self) -> usize {
-        0 // Classes don't take arguments in this simplified implementation
+        0
     }
 
     fn call(&self, _evaluator: &mut Evaluator, _arguments: &[Literal]) -> Result<Literal, RuntimeException> {
-        // In a full implementation, this would create an instance of the class.
-        // For now, we just return a placeholder value.
         Ok(Literal::Nil)
     }
 }

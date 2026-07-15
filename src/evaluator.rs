@@ -29,6 +29,12 @@ impl Evaluator {
     fn define_clock() -> Literal {
         struct ClockCallable;
 
+        impl std::fmt::Display for ClockCallable {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "<fn clock>")
+            }
+        }
+
         impl Callable for ClockCallable {
             fn arity(&self) -> usize {
                 0
