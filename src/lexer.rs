@@ -1,5 +1,5 @@
 use crate::datastructs::token::{Token, TokenType};
-use crate::datastructs::values::Literal;
+use crate::datastructs::literal::Literal;
 use crate::datastructs::exceptions::LexError;
 
 pub struct Lexer {

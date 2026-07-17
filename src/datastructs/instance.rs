@@ -3,7 +3,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::datastructs::values::{Literal, Callable};
+use crate::datastructs::literal::Literal;
+use crate::datastructs::callable::Callable;
 use crate::datastructs::exceptions::RuntimeException;
 use crate::datastructs::token::Token;
 

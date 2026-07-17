@@ -3,7 +3,7 @@ use crate::datastructs::token::Token;
 use crate::datastructs::stmt::Stmt;
 use crate::datastructs::expr::Expr;
 use crate::evaluator::Evaluator;
-use crate::datastructs::values::{ClassType, FunctionType};
+use crate::datastructs::resolver_values::{ClassType, FunctionType};
 use std::collections::HashMap;
 
 pub struct Resolver<'a> {

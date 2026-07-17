@@ -1,11 +1,12 @@
 use std::fmt;
 use std::rc::Rc;
-use std::collections::HashMap;
 use std::cell::RefCell;
-use crate::datastructs::values::{Callable, Literal};
+use std::collections::HashMap;
+use crate::datastructs::literal::Literal;
+use crate::datastructs::callable::Callable;
+use crate::datastructs::instance::Instance;
 use crate::datastructs::exceptions::RuntimeException;
 use crate::evaluator::Evaluator;
-use crate::datastructs::instance::Instance;
 
 pub struct Class {
     pub name: String,
@@ -15,6 +16,10 @@ pub struct Class {
 impl Class {
     pub fn new(name: String, methods: HashMap<String, Rc<dyn Callable>>) -> Self {
         Class { name, methods }
+    }
+
+    pub fn find_method(&self, name: &str) -> Option<Rc<dyn Callable>> {
+        self.methods.get(name).cloned()
     }
 }
 
@@ -30,7 +35,7 @@ impl Callable for Class {
     }
 
     fn arity(&self) -> usize {
-        if let Some(initializer) = self.methods.get("init").cloned() {
+        if let Some(initializer) = self.find_method("init") {
             initializer.arity()
         } else {
             0
@@ -39,7 +44,7 @@ impl Callable for Class {
 
     fn call(&self, evaluator: &mut Evaluator, arguments: &[Literal]) -> Result<Literal, RuntimeException> {
         let instance = Rc::new(RefCell::new(Instance::new(self.name.clone(), self.methods.clone())));
-        let initializer = self.methods.get("init").cloned();
+        let initializer = self.find_method("init");
         if let Some(initializer) = initializer {
             initializer.bind(instance.clone()).call(evaluator, arguments)?;
         }

@@ -1,4 +1,4 @@
-use crate::datastructs::values::Literal;
+use crate::datastructs::literal::Literal;
 use crate::datastructs::exceptions::RuntimeException;
 use crate::datastructs::token::Token;
 use std::collections::HashMap;

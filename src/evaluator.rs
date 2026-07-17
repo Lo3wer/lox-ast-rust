@@ -1,16 +1,13 @@
 use crate::datastructs::exceptions::RuntimeException;
 use crate::datastructs::expr::Expr;
 use crate::datastructs::token::{Token, TokenType};
-use crate::datastructs::values::{Literal, Callable, FunctionCallable};
+use crate::datastructs::literal::Literal;
+use crate::datastructs::callable::{Callable, FunctionCallable, Class, ClockCallable};
 use crate::datastructs::stmt::Stmt;
-use crate::datastructs::instance::Instance;
 use crate::environment::{Environment, EnvRef};
-use crate::datastructs::class::Class;
 
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::rc::Rc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
 
 pub struct Evaluator {
@@ -23,38 +20,9 @@ impl Evaluator {
     pub fn new() -> Self {
         let globals = Environment::new();
         let environment = globals.clone();
-        globals.borrow_mut().define(&Token::identifier("clock"), Self::define_clock());
+        globals.borrow_mut().define(&Token::identifier("clock"), Literal::Callable(Rc::new(ClockCallable)));
         let locals = HashMap::new();
         Evaluator { globals, locals, environment }
-    }
-
-    fn define_clock() -> Literal {
-        struct ClockCallable;
-
-        impl std::fmt::Display for ClockCallable {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "<fn clock>")
-            }
-        }
-
-        impl Callable for ClockCallable {
-            fn bind(&self, _instance: Rc<RefCell<Instance>>) -> Rc<dyn Callable> {
-                Rc::new(ClockCallable)
-            }
-
-            fn arity(&self) -> usize {
-                0
-            }
-
-            fn call(&self, _evaluator: &mut Evaluator, _arguments: &[Literal]) -> Result<Literal, RuntimeException> {
-                let current_time = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("Time went backwards");
-                Ok(Literal::Number(current_time.as_secs_f64()))
-            }
-        }
-
-        Literal::Callable(Rc::new(ClockCallable))
     }
 
     pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), RuntimeException> {

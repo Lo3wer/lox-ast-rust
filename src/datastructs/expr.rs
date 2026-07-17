@@ -1,5 +1,5 @@
 use super::token::Token;
-use super::values::Literal;
+use super::literal::Literal;
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone)]
