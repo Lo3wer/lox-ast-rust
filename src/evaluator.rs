@@ -72,15 +72,19 @@ impl Evaluator {
     }
 
     fn class_stmt(&mut self, name: &Token, superclass: &Option<Box<Expr>>, methods: &[Stmt]) -> Result<(), RuntimeException> {
-        let mut superclass_value: Option<Rc<dyn Callable>> = None;
-            if let Some(superclass_expr) = superclass {
-                let value = self.evaluate(superclass_expr)?;
-                if let Literal::Callable(callable) = value {
-                    superclass_value = Some(callable);  // assign to outer variable
+        let mut superclass_value: Option<Rc<Class>> = None;
+        if let Some(superclass_expr) = superclass {
+            let value = self.evaluate(superclass_expr)?;
+            if let Literal::Callable(callable) = value {
+                if let Some(class) = callable.as_any().downcast_ref::<Class>() {
+                    superclass_value = Some(Rc::new(class.clone()));
                 } else {
                     return Err(self.runtime_error(name, "Superclass must be a class."));
                 }
+            } else {
+                return Err(self.runtime_error(name, "Superclass must be a class."));
             }
+        }
         self.environment.borrow_mut().define(name, Literal::Nil);
         let mut method_map = HashMap::new();
         for method in methods {

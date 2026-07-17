@@ -17,6 +17,8 @@ impl fmt::Display for ClockCallable {
 }
 
 impl Callable for ClockCallable {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+
     fn bind(&self, _instance: Rc<RefCell<Instance>>) -> Rc<dyn Callable> {
         Rc::new(ClockCallable)
     }

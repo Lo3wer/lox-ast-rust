@@ -8,19 +8,25 @@ use crate::datastructs::instance::Instance;
 use crate::datastructs::exceptions::RuntimeException;
 use crate::evaluator::Evaluator;
 
+#[derive(Clone)]
 pub struct Class {
     pub name: String,
-    pub superclass: Option<Rc<dyn Callable>>,
+    pub superclass: Option<Rc<Class>>,
     methods: HashMap<String, Rc<dyn Callable>>,
 }
 
 impl Class {
-    pub fn new(name: String, superclass: Option<Rc<dyn Callable>>, methods: HashMap<String, Rc<dyn Callable>>) -> Self {
+    pub fn new(name: String, superclass: Option<Rc<Class>>, methods: HashMap<String, Rc<dyn Callable>>) -> Self {
         Class { name, superclass, methods }
     }
 
     pub fn find_method(&self, name: &str) -> Option<Rc<dyn Callable>> {
-        self.methods.get(name).cloned()
+        if let Some(method) = self.methods.get(name).cloned() {
+            return Some(method);
+        } else if let Some(superclass) = &self.superclass {
+            return superclass.find_method(name);
+        }
+        None
     }
 }
 
@@ -31,8 +37,10 @@ impl fmt::Display for Class {
 }
 
 impl Callable for Class {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+
     fn bind(&self, _instance: Rc<RefCell<Instance>>) -> Rc<dyn Callable> {
-        Rc::new(Class { name: self.name.clone(), superclass: self.superclass.clone(), methods: self.methods.clone() })
+        Rc::new(self.clone())
     }
 
     fn arity(&self) -> usize {

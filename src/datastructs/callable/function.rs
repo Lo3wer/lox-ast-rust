@@ -30,6 +30,8 @@ impl fmt::Display for FunctionCallable {
 }
 
 impl Callable for FunctionCallable {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+
     fn bind(&self, instance: Rc<RefCell<Instance>>) -> Rc<dyn Callable> {
         let bound_env = Environment::new_enclosed(self.closure.clone());
         bound_env.borrow_mut().define(&Token::identifier("this"), Literal::Instance(instance));
