@@ -14,7 +14,16 @@ class Food {
 class Bacon < Food {
   eat() {
     super.eat();
-    print "Crunch crunch crunch!";
+    {
+      var a = 0;
+      while (a < 3) {
+        print "while crunch";
+        a = a + 1;
+      }
+    }
+    for(var i = 0; i < 3; i = i + 1){
+      print "for crunch";
+    }
   }
 }
 
