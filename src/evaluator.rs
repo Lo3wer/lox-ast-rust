@@ -50,7 +50,7 @@ impl Evaluator {
                 self.execute_block(statements, Environment::new_enclosed(self.environment.clone()))
             }
             Stmt::While { condition, body } => self.while_stmt(condition, body),
-            Stmt::Class { name, methods } => self.class_stmt(name, methods),
+            Stmt::Class { name, superclass, methods } => self.class_stmt(name, superclass, methods),
         }
     }
 
@@ -71,7 +71,16 @@ impl Evaluator {
         result
     }
 
-    fn class_stmt(&mut self, name: &Token, methods: &[Stmt]) -> Result<(), RuntimeException> {
+    fn class_stmt(&mut self, name: &Token, superclass: &Option<Box<Expr>>, methods: &[Stmt]) -> Result<(), RuntimeException> {
+        let mut superclass_value: Option<Rc<dyn Callable>> = None;
+            if let Some(superclass_expr) = superclass {
+                let value = self.evaluate(superclass_expr)?;
+                if let Literal::Callable(callable) = value {
+                    superclass_value = Some(callable);  // assign to outer variable
+                } else {
+                    return Err(self.runtime_error(name, "Superclass must be a class."));
+                }
+            }
         self.environment.borrow_mut().define(name, Literal::Nil);
         let mut method_map = HashMap::new();
         for method in methods {
@@ -80,7 +89,7 @@ impl Evaluator {
                 method_map.insert(method_name.lexeme().to_string(), function as Rc<dyn Callable>);
             }
         }
-        let class = Literal::Callable(Rc::new(Class::new(name.lexeme().to_string(), method_map)));
+        let class = Literal::Callable(Rc::new(Class::new(name.lexeme().to_string(), superclass_value, method_map)));
         self.environment.borrow_mut().assign(name, class)?;
         Ok(())
     }

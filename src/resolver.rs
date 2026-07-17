@@ -76,11 +76,23 @@ impl<'a> Resolver<'a> {
                 self.resolve_expr(condition)?;
                 self.resolve_stmt(body)?;
             }
-            Stmt::Class { name, methods} => {
+            Stmt::Class { name, superclass, methods } => {
                 let enclosing_class = self.current_class.take();
                 self.current_class = Some(ClassType::Class);
                 self.declare(name)?;
                 self.define(name);
+
+                if let Some(superclass_expr) = superclass {
+                    if let Expr::Variable { name: superclass_name } = superclass_expr.as_ref() {
+                        if name.lexeme() == superclass_name.lexeme() {
+                            return Err(ResolveError {
+                                token: superclass_name.clone(),
+                                message: "A class cannot inherit from itself.".to_string(),
+                            });
+                        }
+                    }
+                    self.resolve_expr(&superclass_expr)?;
+                }
 
                 self.begin_scope();
                 self.scopes.last_mut().unwrap().insert("this".to_string(), true);

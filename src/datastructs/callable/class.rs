@@ -10,12 +10,13 @@ use crate::evaluator::Evaluator;
 
 pub struct Class {
     pub name: String,
+    pub superclass: Option<Rc<dyn Callable>>,
     methods: HashMap<String, Rc<dyn Callable>>,
 }
 
 impl Class {
-    pub fn new(name: String, methods: HashMap<String, Rc<dyn Callable>>) -> Self {
-        Class { name, methods }
+    pub fn new(name: String, superclass: Option<Rc<dyn Callable>>, methods: HashMap<String, Rc<dyn Callable>>) -> Self {
+        Class { name, superclass, methods }
     }
 
     pub fn find_method(&self, name: &str) -> Option<Rc<dyn Callable>> {
@@ -31,7 +32,7 @@ impl fmt::Display for Class {
 
 impl Callable for Class {
     fn bind(&self, _instance: Rc<RefCell<Instance>>) -> Rc<dyn Callable> {
-        Rc::new(Class { name: self.name.clone(), methods: self.methods.clone() })
+        Rc::new(Class { name: self.name.clone(), superclass: self.superclass.clone(), methods: self.methods.clone() })
     }
 
     fn arity(&self) -> usize {
