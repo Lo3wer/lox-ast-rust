@@ -1,6 +1,5 @@
 fun test (a, b, c) {
-    var d = a + b + c;
-    return d;
+    var d = a + b + c; while (d < 3) { print 2; }
 }
 
 print(test(1, 2, 3));
@@ -15,11 +14,7 @@ class Bacon < Food {
   eat() {
     super.eat();
     {
-      var a = 0;
-      while (a < 3) {
-        print "while crunch";
-        a = a + 1;
-      }
+      var a = 0; while (a < 3) { print "while crunch"; a = a + 1; }
     }
     for(var i = 0; i < 3; i = i + 1){
       print "for crunch";

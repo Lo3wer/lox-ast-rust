@@ -8,11 +8,18 @@ pub struct Parser {
     tokens: Vec<Token>,
     errors: Vec<ParseError>,
     current: usize,
+    expr_id_counter: usize,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Parser { tokens, errors: Vec::new(), current: 0 }
+        Parser { tokens, errors: Vec::new(), current: 0, expr_id_counter: 0 }
+    }
+
+    fn next_expr_id(&mut self) -> usize {
+        let id = self.expr_id_counter;
+        self.expr_id_counter += 1;
+        id
     }
 
     pub fn parse_prompt_line(&mut self) -> Result<Vec<Stmt>, Vec<ParseError>> {
@@ -66,7 +73,7 @@ impl Parser {
 
         let superclass = if self.match_token(&[TokenType::Less]) {
             let superclass_name = self.consume(TokenType::Identifier, "Expect superclass name.")?.clone();
-            Some(Box::new(Expr::Variable { name: superclass_name }))
+            Some(Box::new(Expr::Variable { name: superclass_name, id: self.next_expr_id() }))
         } else {
             None
         };
@@ -108,7 +115,7 @@ impl Parser {
     fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
         let name = self.consume(TokenType::Identifier, "Expect variable name.")?.clone();
 
-        let mut initializer = Expr::Literal { value: Literal::Nil };
+        let mut initializer = Expr::Literal { value: Literal::Nil, id: self.next_expr_id() };
         if self.match_token(&[TokenType::Equal]) {
             initializer = self.expression()?;
         }
@@ -185,7 +192,7 @@ impl Parser {
             });
         }
 
-        let condition = condition.unwrap_or(Expr::Literal { value: Literal::Bool(true) });
+        let condition = condition.unwrap_or(Expr::Literal { value: Literal::Bool(true), id: self.next_expr_id() });
 
         body = Box::new(Stmt::While {
             condition: Box::new(condition),
@@ -269,6 +276,7 @@ impl Parser {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
+                id: self.next_expr_id(),
             };
         }
 
@@ -282,16 +290,18 @@ impl Parser {
             let equals = self.previous().clone();
             let value = self.assignment()?;
 
-            if let Expr::Variable { name } = expr {
+            if let Expr::Variable { name, .. } = expr {
                 return Ok(Expr::Assign {
                     name,
                     value: Box::new(value),
+                    id: self.next_expr_id(),
                 });
-            } else if let Expr::Get { object, name } = expr {
+            } else if let Expr::Get { object, name, .. } = expr {
                 return Ok(Expr::Set {
                     object,
                     name,
                     value: Box::new(value),
+                    id: self.next_expr_id(),
                 });
             }
 
@@ -311,6 +321,7 @@ impl Parser {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
+                id: self.next_expr_id(),
             };
         }
 
@@ -327,6 +338,7 @@ impl Parser {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
+                id: self.next_expr_id(),
             };
         }
 
@@ -344,6 +356,7 @@ impl Parser {
                 condition: Box::new(expr),
                 then_branch: Box::new(then_branch),
                 else_branch: Box::new(else_branch),
+                id: self.next_expr_id(),
             };
         }
 
@@ -361,6 +374,7 @@ impl Parser {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
+                id: self.next_expr_id(),
             };
         }
 
@@ -382,6 +396,7 @@ impl Parser {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
+                id: self.next_expr_id(),
             };
         }
 
@@ -398,6 +413,7 @@ impl Parser {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
+                id: self.next_expr_id(),
             };
         }
 
@@ -414,6 +430,7 @@ impl Parser {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
+                id: self.next_expr_id(),
             };
         }
 
@@ -428,6 +445,7 @@ impl Parser {
             return Ok(Expr::Unary {
                 operator,
                 right: Box::new(right),
+                id: self.next_expr_id(),
             });
         }
 
@@ -445,6 +463,7 @@ impl Parser {
                 expr = Expr::Get {
                     object: Box::new(expr),
                     name,
+                    id: self.next_expr_id(),
                 };
             } else {
                 break;
@@ -475,41 +494,42 @@ impl Parser {
             callee: Box::new(callee),
             paren,
             arguments,
+            id: self.next_expr_id(),
         })
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
         if self.match_token(&[TokenType::False]) {
-            return Ok(Expr::Literal { value: Literal::Bool(false) });
+            return Ok(Expr::Literal { value: Literal::Bool(false), id: self.next_expr_id() });
         }
         if self.match_token(&[TokenType::True]) {
-            return Ok(Expr::Literal { value: Literal::Bool(true) });
+            return Ok(Expr::Literal { value: Literal::Bool(true), id: self.next_expr_id() });
         }
         if self.match_token(&[TokenType::Nil]) {
-            return Ok(Expr::Literal { value: Literal::Nil });
+            return Ok(Expr::Literal { value: Literal::Nil, id: self.next_expr_id() });
         }
         if self.match_token(&[TokenType::Number, TokenType::String]) {
             let literal = self.previous().literal()
                 .cloned()
                 .ok_or_else(|| self.error(self.previous(), "Expected a literal value."))?;
-            return Ok(Expr::Literal { value: literal });
+            return Ok(Expr::Literal { value: literal, id: self.next_expr_id() });
         }
         if self.match_token(&[TokenType::This]) {
-            return Ok(Expr::This { keyword: self.previous().clone() });
+            return Ok(Expr::This { keyword: self.previous().clone(), id: self.next_expr_id() });
         }
         if self.match_token(&[TokenType::Identifier]) {
-            return Ok(Expr::Variable { name: self.previous().clone() });
+            return Ok(Expr::Variable { name: self.previous().clone(), id: self.next_expr_id() });
         }
         if self.match_token(&[TokenType::LeftParen]) {
             let expr = self.expression()?;
             self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
-            return Ok(Expr::Grouping { expression: Box::new(expr) });
+            return Ok(Expr::Grouping { expression: Box::new(expr), id: self.next_expr_id() });
         }
         if self.match_token(&[TokenType::Super]) {
             let keyword = self.previous().clone();
             self.consume(TokenType::Dot, "Expect '.' after 'super'.")?;
             let method = self.consume(TokenType::Identifier, "Expect superclass method name.")?.clone();
-            return Ok(Expr::Super { keyword, method });
+            return Ok(Expr::Super { keyword, method, id: self.next_expr_id() });
         }
 
         // error productions

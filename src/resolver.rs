@@ -83,7 +83,7 @@ impl<'a> Resolver<'a> {
                 self.define(name);
 
                 if let Some(superclass_expr) = superclass {
-                    if let Expr::Variable { name: superclass_name } = superclass_expr.as_ref() {
+                    if let Expr::Variable { name: superclass_name, .. } = superclass_expr.as_ref() {
                         if name.lexeme() == superclass_name.lexeme() {
                             return Err(ResolveError {
                                 token: superclass_name.clone(),
@@ -136,11 +136,11 @@ impl<'a> Resolver<'a> {
 
     fn resolve_expr(&mut self, expression: &Expr) -> Result<(), ResolveError> {
         match expression {
-            Expr::Assign { name, value } => {
+            Expr::Assign { name, value, .. } => {
                 self.resolve_expr(value)?;
                 self.resolve_local(expression, name);
             }
-            Expr::Variable { name } => {
+            Expr::Variable { name, .. } => {
                 if let Some(scope) = self.scopes.last() {
                     if let Some(false) = scope.get(name.lexeme()) {
                         return Err(ResolveError {
@@ -151,32 +151,32 @@ impl<'a> Resolver<'a> {
                 }
                 self.resolve_local(expression, name);
             }
-            Expr::Binary { left, operator: _, right} => {
+            Expr::Binary { left, operator: _, right, .. } => {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)?;
             }
-            Expr::Call { callee, paren: _, arguments } => {
+            Expr::Call { callee, paren: _, arguments, .. } => {
                 self.resolve_expr(callee)?;
                 for argument in arguments {
                     self.resolve_expr(argument)?;
                 }
             }
-            Expr::Get { object, name: _ } => {
+            Expr::Get { object, name: _, .. } => {
                 self.resolve_expr(object)?;
             }
-            Expr::Grouping { expression } => {
+            Expr::Grouping { expression, .. } => {
                 self.resolve_expr(expression)?;
             }
-            Expr::Literal { value: _ } => {}
-            Expr::Logical { left, operator: _, right } => {
+            Expr::Literal { value: _, .. } => {}
+            Expr::Logical { left, operator: _, right, .. } => {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)?;
             }
-            Expr::Set { object, name: _, value } => {
+            Expr::Set { object, name: _, value, .. } => {
                 self.resolve_expr(object)?;
                 self.resolve_expr(value)?;
             }
-            Expr::Super { keyword, method: _ } => {
+            Expr::Super { keyword, method: _, .. } => {
                 if self.current_class.is_none() {
                     return Err(ResolveError {
                         token: keyword.clone(),
@@ -190,7 +190,7 @@ impl<'a> Resolver<'a> {
                 }
                 self.resolve_local(expression, keyword);
             }
-            Expr::This { keyword } => {
+            Expr::This { keyword, .. } => {
                 if self.current_class.is_none() {
                     return Err(ResolveError {
                         token: keyword.clone(),
@@ -199,10 +199,10 @@ impl<'a> Resolver<'a> {
                 }
                 self.resolve_local(expression, keyword);
             }
-            Expr::Unary { operator: _, right } => {
+            Expr::Unary { operator: _, right, .. } => {
                 self.resolve_expr(right)?;
             }
-            Expr::Ternary { condition, then_branch, else_branch } => {
+            Expr::Ternary { condition, then_branch, else_branch, .. } => {
                 self.resolve_expr(condition)?;
                 self.resolve_expr(then_branch)?;
                 self.resolve_expr(else_branch)?;

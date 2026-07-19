@@ -175,12 +175,12 @@ impl Evaluator {
 
     fn evaluate(&mut self, expr: &Expr) -> Result<Literal, RuntimeException> {
         match expr {
-            Expr::Binary { left, operator, right } => {
+            Expr::Binary { left, operator, right, .. } => {
                 let left_val = self.evaluate(left)?;
                 let right_val = self.evaluate(right)?;
                 self.evaluate_binary(&left_val, operator, &right_val)
             }
-            Expr::Call { callee, paren, arguments } => {
+            Expr::Call { callee, paren, arguments, .. } => {
                 let callee_val = self.evaluate(callee)?;
                 let mut arg_values = Vec::new();
                 for arg in arguments {
@@ -188,30 +188,33 @@ impl Evaluator {
                 }
                 self.evaluate_call(&callee_val, paren, &arg_values)
             }
-            Expr::Get { object, name } => {
+            Expr::Get { object, name, .. } => {
                 let object_val = self.evaluate(object)?;
                 self.evaluate_get(&object_val, name)
             }
-            Expr::Grouping { expression } => self.evaluate(expression),
-            Expr::Literal { value } => Ok(value.clone()),
-            Expr::Logical { left, operator, right} => self.evaluate_logical(left, operator, right),
-            Expr::Set { object, name, value } => {
+            Expr::Grouping { expression, .. } => self.evaluate(expression),
+            Expr::Literal { value, .. } => Ok(value.clone()),
+            Expr::Logical { left, operator, right, .. } => self.evaluate_logical(left, operator, right),
+            Expr::Set { object, name, value, .. } => {
                 let object_val = self.evaluate(object)?;
                 let value_val = self.evaluate(value)?;
                 self.evaluate_set(&object_val, name, &value_val)
             },
-            Expr::Unary { operator, right } => {
+            Expr::Unary { operator, right, .. } => {
                 let right_val = self.evaluate(right)?;
                 self.evaluate_unary(operator, &right_val)
             }
-            Expr::Ternary { condition, then_branch, else_branch } => {
+            Expr::Ternary { condition, then_branch, else_branch, .. } => {
                 let condition_val = self.evaluate(condition)?;
                 self.evaluate_ternary(&condition_val, then_branch, else_branch)
             }
-            Expr::Variable { name } => self.look_up_variable(name, expr),
-            Expr::This { keyword } => self.look_up_variable(keyword, expr),
-            Expr::Assign { name, value } => self.evaluate_assign(name, value),
-            Expr::Super { keyword, method } => {
+            Expr::Variable { name, .. } => self.look_up_variable(name, expr),
+            Expr::This { keyword, .. } => self.look_up_variable(keyword, expr),
+            Expr::Assign { name, value, .. } => {
+                let depth = self.locals.get(expr).copied();
+                self.evaluate_assign(name, value, depth)
+            }
+            Expr::Super { keyword, method, .. } => {
                 if let Some(depth) = self.locals.get(expr) {
                     let superclass = self.environment.borrow().get_at(*depth, keyword)?;
                     let this = self.environment.borrow().get_at(*depth - 1, &Token::identifier("this"))?;
@@ -232,10 +235,10 @@ impl Evaluator {
         }
     }
 
-    fn evaluate_assign(&mut self, name: &Token, value: &Expr) -> Result<Literal, RuntimeException> {
+    fn evaluate_assign(&mut self, name: &Token, value: &Expr, depth: Option<usize>) -> Result<Literal, RuntimeException> {
         let value_val = self.evaluate(value)?;
-        if let Some(depth) = self.locals.get(&Expr::Assign { name: name.clone(), value: Box::new(value.clone()) }) {
-            self.environment.borrow_mut().assign_at(*depth, name, value_val.clone())?;
+        if let Some(depth) = depth {
+            self.environment.borrow_mut().assign_at(depth, name, value_val.clone())?;
         } else {
             self.globals.borrow_mut().assign(name, value_val.clone())?;
         }
