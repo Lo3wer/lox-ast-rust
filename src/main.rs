@@ -1,12 +1,4 @@
-mod lexer;
-mod lox;
-mod datastructs;
-mod parser;
-mod evaluator;
-mod environment;
-mod resolver;
-
-use lox::Lox;
+use lox_ast_rust::lox::Lox;
 use std::process;
 use std::env;
 

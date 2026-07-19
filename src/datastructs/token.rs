@@ -87,3 +87,56 @@ impl fmt::Display for Token {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_token() {
+        let t = Token::new(TokenType::Number, "42".into(), Some(Literal::Number(42.0)), 1);
+        assert_eq!(t.token_type(), TokenType::Number);
+        assert_eq!(t.lexeme(), "42");
+        assert_eq!(t.line(), 1);
+        assert!(t.literal().is_some());
+    }
+
+    #[test]
+    fn test_identifier_token() {
+        let t = Token::identifier("foo");
+        assert_eq!(t.token_type(), TokenType::Identifier);
+        assert_eq!(t.lexeme(), "foo");
+        assert_eq!(t.line(), 0);
+    }
+
+    #[test]
+    fn test_token_eq_same_line() {
+        let a = Token::new(TokenType::Identifier, "x".into(), None, 3);
+        let b = Token::new(TokenType::Identifier, "x".into(), None, 3);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_token_eq_different_line() {
+        let a = Token::new(TokenType::Identifier, "x".into(), None, 3);
+        let b = Token::new(TokenType::Identifier, "x".into(), None, 5);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_token_eq_different_type() {
+        let a = Token::new(TokenType::Identifier, "x".into(), None, 1);
+        let b = Token::new(TokenType::String, "x".into(), None, 1);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_token_hash() {
+        use std::collections::HashSet;
+        let a = Token::new(TokenType::Identifier, "x".into(), None, 1);
+        let b = Token::new(TokenType::Identifier, "x".into(), None, 1);
+        let mut set = HashSet::new();
+        set.insert(a.clone());
+        assert!(set.contains(&b));
+    }
+}

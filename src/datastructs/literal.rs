@@ -59,3 +59,64 @@ impl fmt::Display for Literal {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_literal_eq_bool() {
+        assert_eq!(Literal::Bool(true), Literal::Bool(true));
+        assert_ne!(Literal::Bool(true), Literal::Bool(false));
+    }
+
+    #[test]
+    fn test_literal_eq_string() {
+        assert_eq!(Literal::String("hi".into()), Literal::String("hi".into()));
+        assert_ne!(Literal::String("hi".into()), Literal::String("bye".into()));
+    }
+
+    #[test]
+    fn test_literal_eq_number() {
+        assert_eq!(Literal::Number(3.14), Literal::Number(3.14));
+        assert_ne!(Literal::Number(1.0), Literal::Number(2.0));
+    }
+
+    #[test]
+    fn test_literal_eq_nil() {
+        assert_eq!(Literal::Nil, Literal::Nil);
+    }
+
+    #[test]
+    fn test_literal_cross_type_not_equal() {
+        assert_ne!(Literal::Number(1.0), Literal::String("1".into()));
+        assert_ne!(Literal::Bool(true), Literal::Nil);
+    }
+
+    #[test]
+    fn test_literal_display_bool() {
+        assert_eq!(format!("{}", Literal::Bool(true)), "true");
+        assert_eq!(format!("{}", Literal::Bool(false)), "false");
+    }
+
+    #[test]
+    fn test_literal_display_integer_number() {
+        assert_eq!(format!("{}", Literal::Number(42.0)), "42");
+    }
+
+    #[test]
+    fn test_literal_display_float_number() {
+        let s = format!("{}", Literal::Number(3.14));
+        assert!(s == "3.14" || s == "3.1400000000000001");
+    }
+
+    #[test]
+    fn test_literal_display_string() {
+        assert_eq!(format!("{}", Literal::String("hello".into())), "hello");
+    }
+
+    #[test]
+    fn test_literal_display_nil() {
+        assert_eq!(format!("{}", Literal::Nil), "nil");
+    }
+}

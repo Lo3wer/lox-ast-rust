@@ -613,3 +613,412 @@ impl Parser {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::Lexer;
+
+    fn parse(source: &str) -> Result<Vec<Stmt>, Vec<ParseError>> {
+        let mut lexer = Lexer::new(source.to_string());
+        let (tokens, _) = lexer.scan_tokens();
+        let mut parser = Parser::new(tokens);
+        parser.parse()
+    }
+
+    fn parse_one(source: &str) -> Stmt {
+        let mut stmts = parse(source).expect("parsing failed");
+        assert_eq!(stmts.len(), 1, "expected exactly one statement");
+        stmts.remove(0)
+    }
+
+    fn assert_expression_stmt(stmt: &Stmt) -> &Expr {
+        match stmt {
+            Stmt::Expression { expression } => expression.as_ref(),
+            other => panic!("expected Expression stmt, got {:?}", other),
+        }
+    }
+
+    fn assert_var(stmt: &Stmt) -> (&Token, &Expr) {
+        match stmt {
+            Stmt::Var { name, initializer } => (name, initializer.as_ref()),
+            other => panic!("expected Var stmt, got {:?}", other),
+        }
+    }
+
+    fn assert_print(stmt: &Stmt) -> &Expr {
+        match stmt {
+            Stmt::Print { expression } => expression.as_ref(),
+            other => panic!("expected Print stmt, got {:?}", other),
+        }
+    }
+
+    fn assert_literal(expr: &Expr) {
+        match expr {
+            Expr::Literal { .. } => {},
+            _other => panic!("expected Literal expr, got variant"),
+        }
+    }
+
+    fn assert_binary(expr: &Expr) -> (&Token, &Expr, &Expr) {
+        match expr {
+            Expr::Binary { operator, left, right, .. } => (operator, left, right),
+            other => panic!("expected Binary expr, got {:?}", other),
+        }
+    }
+
+    fn assert_unary(expr: &Expr) -> (&Token, &Expr) {
+        match expr {
+            Expr::Unary { operator, right, .. } => (operator, right),
+            other => panic!("expected Unary expr, got {:?}", other),
+        }
+    }
+
+    fn assert_grouping(expr: &Expr) -> &Expr {
+        match expr {
+            Expr::Grouping { expression, .. } => expression.as_ref(),
+            other => panic!("expected Grouping expr, got {:?}", other),
+        }
+    }
+
+    fn assert_variable(expr: &Expr) -> &Token {
+        match expr {
+            Expr::Variable { name, .. } => name,
+            other => panic!("expected Variable expr, got {:?}", other),
+        }
+    }
+
+    // --- Statement parsing ---
+
+    #[test]
+    fn test_parse_expression_stmt() {
+        let stmt = parse_one("x;");
+        let expr = assert_expression_stmt(&stmt);
+        let name = assert_variable(expr);
+        assert_eq!(name.lexeme(), "x");
+    }
+
+    #[test]
+    fn test_parse_print() {
+        let stmt = parse_one("print 42;");
+        let expr = assert_print(&stmt);
+        assert_literal(expr);
+    }
+
+    #[test]
+    fn test_parse_var_no_init() {
+        let stmt = parse_one("var x;");
+        let (name, init) = assert_var(&stmt);
+        assert_eq!(name.lexeme(), "x");
+        assert_literal(init);
+    }
+
+    #[test]
+    fn test_parse_var_with_init() {
+        let stmt = parse_one("var x = 99;");
+        let (name, init) = assert_var(&stmt);
+        assert_eq!(name.lexeme(), "x");
+        assert_literal(init);
+    }
+
+    #[test]
+    fn test_parse_block() {
+        let stmts = parse("{ var a = 1; print a; }").expect("parse failed");
+        assert_eq!(stmts.len(), 1);
+        match &stmts[0] {
+            Stmt::Block { statements } => {
+                assert_eq!(statements.len(), 2);
+                assert!(matches!(&statements[0], Stmt::Var { .. }));
+                assert!(matches!(&statements[1], Stmt::Print { .. }));
+            }
+            other => panic!("expected Block, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_if() {
+        let stmts = parse("if (a) print 1; else print 2;").expect("parse failed");
+        assert_eq!(stmts.len(), 1);
+        match &stmts[0] {
+            Stmt::If { condition, then_branch, else_branch } => {
+                assert!(matches!(condition.as_ref(), Expr::Variable { .. }));
+                assert!(matches!(then_branch.as_ref(), Stmt::Print { .. }));
+                assert!(else_branch.is_some());
+            }
+            other => panic!("expected If, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_if_no_else() {
+        let stmts = parse("if (a) print 1;").expect("parse failed");
+        match &stmts[0] {
+            Stmt::If { else_branch, .. } => assert!(else_branch.is_none()),
+            other => panic!("expected If, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_while() {
+        let stmts = parse("while (a) print 1;").expect("parse failed");
+        match &stmts[0] {
+            Stmt::While { condition, body } => {
+                assert!(matches!(condition.as_ref(), Expr::Variable { .. }));
+                assert!(matches!(body.as_ref(), Stmt::Print { .. }));
+            }
+            other => panic!("expected While, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_for() {
+        let stmts = parse("for (var i = 0; i < 3; i = i + 1) print i;").expect("parse failed");
+        assert_eq!(stmts.len(), 1);
+        // for desugars into a Block containing initialier + while loop
+        match &stmts[0] {
+            Stmt::Block { .. } => {}
+            other => panic!("expected Block (desugared for), got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_for_no_init() {
+        let stmts = parse("for (; a < 3; a = a + 1) print a;").expect("parse failed");
+        assert_eq!(stmts.len(), 1);
+        match &stmts[0] {
+            Stmt::While { .. } => {}
+            other => panic!("expected While (desugared for), got {:?}", other),
+        }
+    }
+
+    // --- Expression parsing ---
+
+    #[test]
+    fn test_parse_literal_number() {
+        let stmt = parse_one("3.14;");
+        let expr = assert_expression_stmt(&stmt);
+        assert_literal(expr);
+    }
+
+    #[test]
+    fn test_parse_literal_string() {
+        let stmt = parse_one("\"hello\";");
+        let expr = assert_expression_stmt(&stmt);
+        assert_literal(expr);
+    }
+
+    #[test]
+    fn test_parse_literal_bool() {
+        let stmt = parse_one("true;");
+        let expr = assert_expression_stmt(&stmt);
+        assert_literal(expr);
+    }
+
+    #[test]
+    fn test_parse_variable() {
+        let stmt = parse_one("foo;");
+        let expr = assert_expression_stmt(&stmt);
+        assert_variable(expr);
+    }
+
+    #[test]
+    fn test_parse_binary_precedence() {
+        // a + b * c should parse as a + (b * c)
+        let stmt = parse_one("a + b * c;");
+        let expr = assert_expression_stmt(&stmt);
+        let (op, left, right) = assert_binary(expr);
+        assert_eq!(op.lexeme(), "+");
+        assert_variable(left); // left is 'a'
+        // right should be Binary(b * c)
+        let (op2, left2, right2) = assert_binary(right);
+        assert_eq!(op2.lexeme(), "*");
+        assert_variable(left2); // 'b'
+        assert_variable(right2); // 'c'
+    }
+
+    #[test]
+    fn test_parse_grouping() {
+        let stmt = parse_one("(a);");
+        let expr = assert_expression_stmt(&stmt);
+        let inner = assert_grouping(expr);
+        assert_variable(inner);
+    }
+
+    #[test]
+    fn test_parse_unary_minus() {
+        let stmt = parse_one("-42;");
+        let expr = assert_expression_stmt(&stmt);
+        let (op, right) = assert_unary(expr);
+        assert_eq!(op.lexeme(), "-");
+        assert_literal(right);
+    }
+
+    #[test]
+    fn test_parse_unary_bang() {
+        let stmt = parse_one("!true;");
+        let expr = assert_expression_stmt(&stmt);
+        let (op, right) = assert_unary(expr);
+        assert_eq!(op.lexeme(), "!");
+        assert_literal(right);
+    }
+
+    #[test]
+    fn test_parse_ternary() {
+        let stmt = parse_one("a ? b : c;");
+        let expr = assert_expression_stmt(&stmt);
+        match expr {
+            Expr::Ternary { condition, then_branch, else_branch, .. } => {
+                assert_variable(condition);
+                assert_variable(then_branch);
+                assert_variable(else_branch);
+            }
+            other => panic!("expected Ternary, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_logical_and() {
+        let stmt = parse_one("a and b;");
+        let expr = assert_expression_stmt(&stmt);
+        match expr {
+            Expr::Logical { operator, left, right, .. } => {
+                assert_eq!(operator.lexeme(), "and");
+                assert_variable(left);
+                assert_variable(right);
+            }
+            other => panic!("expected Logical, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_logical_or() {
+        let stmt = parse_one("a or b;");
+        let expr = assert_expression_stmt(&stmt);
+        match expr {
+            Expr::Logical { operator, left, right, .. } => {
+                assert_eq!(operator.lexeme(), "or");
+                assert_variable(left);
+                assert_variable(right);
+            }
+            other => panic!("expected Logical, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_assignment() {
+        let stmt = parse_one("x = 5;");
+        let expr = assert_expression_stmt(&stmt);
+        match expr {
+            Expr::Assign { name, value, .. } => {
+                assert_eq!(name.lexeme(), "x");
+                assert_literal(value);
+            }
+            other => panic!("expected Assign, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_comma() {
+        let stmt = parse_one("a, b;");
+        let expr = assert_expression_stmt(&stmt);
+        let (op, left, right) = assert_binary(expr);
+        assert_eq!(op.lexeme(), ",");
+        assert_variable(left);
+        assert_variable(right);
+    }
+
+    #[test]
+    fn test_parse_function_call() {
+        let stmt = parse_one("f(a, b);");
+        let expr = assert_expression_stmt(&stmt);
+        match expr {
+            Expr::Call { callee, arguments, .. } => {
+                assert_variable(callee);
+                assert_eq!(arguments.len(), 2);
+            }
+            other => panic!("expected Call, got {:?}", other),
+        }
+    }
+
+    // --- Error cases ---
+
+    #[test]
+    fn test_parse_missing_semicolon() {
+        let result = parse("var x = 5");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_missing_right_paren() {
+        let result = parse("(a");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_invalid_assignment_target() {
+        let result = parse("(a) = 1;");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_empty_input() {
+        let stmts = parse("").expect("empty input should parse");
+        assert!(stmts.is_empty());
+    }
+
+    #[test]
+    fn test_parse_multiple_statements() {
+        let stmts = parse("var a = 1; print a; a = 2;").expect("parse failed");
+        assert_eq!(stmts.len(), 3);
+    }
+
+    #[test]
+    fn test_parse_function_declaration() {
+        let stmts = parse("fun foo(x, y) { return x + y; }").expect("parse failed");
+        match &stmts[0] {
+            Stmt::Function { name, params, body } => {
+                assert_eq!(name.lexeme(), "foo");
+                assert_eq!(params.len(), 2);
+                assert_eq!(body.len(), 1);
+                assert!(matches!(&body[0], Stmt::Return { .. }));
+            }
+            other => panic!("expected Function, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_class_declaration() {
+        let stmts = parse("class Foo { bar() { print 1; } }").expect("parse failed");
+        match &stmts[0] {
+            Stmt::Class { name, superclass, methods } => {
+                assert_eq!(name.lexeme(), "Foo");
+                assert!(superclass.is_none());
+                assert_eq!(methods.len(), 1);
+            }
+            other => panic!("expected Class, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_class_with_superclass() {
+        let stmts = parse("class Foo < Bar { }").expect("parse failed");
+        match &stmts[0] {
+            Stmt::Class { name, superclass, .. } => {
+                assert_eq!(name.lexeme(), "Foo");
+                assert!(superclass.is_some());
+            }
+            other => panic!("expected Class, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_each_expr_has_unique_id() {
+        let stmt = parse_one("1 + 2;");
+        let expr = assert_expression_stmt(&stmt);
+        let (_, left, right) = assert_binary(expr);
+        // Every Expr node should have a unique id
+        assert_ne!(expr.id(), left.id());
+        assert_ne!(expr.id(), right.id());
+        assert_ne!(left.id(), right.id());
+    }
+}

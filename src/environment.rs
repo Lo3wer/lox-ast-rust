@@ -85,3 +85,101 @@ impl Environment {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tok(name: &str) -> Token {
+        Token::identifier(name)
+    }
+
+    #[test]
+    fn test_global_define_and_get() {
+        let env = Environment::new();
+        env.borrow_mut().define(&tok("x"), Literal::Number(10.0));
+        let val = env.borrow().get(&tok("x")).unwrap();
+        assert_eq!(val, Literal::Number(10.0));
+    }
+
+    #[test]
+    fn test_global_assign() {
+        let env = Environment::new();
+        env.borrow_mut().define(&tok("x"), Literal::Number(1.0));
+        env.borrow_mut().assign(&tok("x"), Literal::Number(2.0)).unwrap();
+        let val = env.borrow().get(&tok("x")).unwrap();
+        assert_eq!(val, Literal::Number(2.0));
+    }
+
+    #[test]
+    fn test_global_assign_undefined() {
+        let env = Environment::new();
+        let result = env.borrow_mut().assign(&tok("undef"), Literal::Nil);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_get_undefined() {
+        let env = Environment::new();
+        let result = env.borrow().get(&tok("nosuch"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_nested_define_and_get() {
+        let global = Environment::new();
+        let child = Environment::new_enclosed(global.clone());
+
+        global.borrow_mut().define(&tok("a"), Literal::Number(1.0));
+        child.borrow_mut().define(&tok("b"), Literal::Number(2.0));
+
+        // child can see its own var
+        assert_eq!(child.borrow().get(&tok("b")).unwrap(), Literal::Number(2.0));
+        // child can see parent var via walk
+        assert_eq!(child.borrow().get(&tok("a")).unwrap(), Literal::Number(1.0));
+    }
+
+    #[test]
+    fn test_get_at_distance() {
+        let global = Environment::new();
+        let child = Environment::new_enclosed(global.clone());
+
+        global.borrow_mut().define(&tok("x"), Literal::Number(99.0));
+        // child has its own "x" shadowing parent
+        child.borrow_mut().define(&tok("x"), Literal::Number(1.0));
+
+        // get_at(0) on child reads child's x
+        assert_eq!(child.borrow().get_at(0, &tok("x")).unwrap(), Literal::Number(1.0));
+        // get_at(1) on child walks up to global's x
+        assert_eq!(child.borrow().get_at(1, &tok("x")).unwrap(), Literal::Number(99.0));
+    }
+
+    #[test]
+    fn test_assign_at_distance() {
+        let global = Environment::new();
+        let child = Environment::new_enclosed(global.clone());
+
+        global.borrow_mut().define(&tok("x"), Literal::Number(0.0));
+        child.borrow_mut().define(&tok("x"), Literal::Number(0.0));
+
+        // assign_at(1) modifies parent's x
+        child.borrow_mut().assign_at(1, &tok("x"), Literal::Number(999.0)).unwrap();
+        assert_eq!(child.borrow().get(&tok("x")).unwrap(), Literal::Number(0.0));
+        assert_eq!(global.borrow().get(&tok("x")).unwrap(), Literal::Number(999.0));
+    }
+
+    #[test]
+    fn test_shadow_restores_parent() {
+        let global = Environment::new();
+        let child = Environment::new_enclosed(global.clone());
+
+        global.borrow_mut().define(&tok("x"), Literal::Number(10.0));
+        child.borrow_mut().define(&tok("x"), Literal::Number(20.0));
+
+        assert_eq!(child.borrow().get(&tok("x")).unwrap(), Literal::Number(20.0));
+        drop(child);
+
+        // global unaffected
+        assert_eq!(global.borrow().get(&tok("x")).unwrap(), Literal::Number(10.0));
+    }
+}
